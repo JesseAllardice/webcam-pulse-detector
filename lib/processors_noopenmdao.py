@@ -19,13 +19,13 @@ def resource_path(relative_path):
 
 class findFaceGetPulse(object):
 
-    def __init__(self, bpm_limits=[], data_spike_limit=250,
+    def __init__(self, bpm_limits, data_spike_limit=250,
                  face_detector_smoothness=10):
 
         self.frame_in = np.zeros((10, 10))
         self.frame_out = np.zeros((10, 10))
         self.fps = 0
-        self.buffer_size = 250
+        self.buffer_size = 500 # originally 250
         #self.window = np.hamming(self.buffer_size)
         self.data_buffer = []
         self.times = []
@@ -36,6 +36,7 @@ class findFaceGetPulse(object):
         self.slices = [[0]]
         self.t0 = time.time()
         self.bpms = []
+        self.bpm_lims=bpm_limits
         self.bpm = 0
         dpath = resource_path("haarcascade_frontalface_alt.xml")
         if not os.path.exists(dpath):
@@ -181,8 +182,9 @@ class findFaceGetPulse(object):
             L = self.buffer_size
 
         processed = np.array(self.data_buffer)
+        processed = processed - np.mean(processed) # remove the background counts
         self.samples = processed
-        if L > 10:
+        if L > 20:
             self.output_dim = processed.shape[0]
 
             self.fps = float(L) / (self.times[-1] - self.times[0])
@@ -196,7 +198,7 @@ class findFaceGetPulse(object):
             self.freqs = float(self.fps) / L * np.arange(L / 2 + 1)
 
             freqs = 60. * self.freqs
-            idx = np.where((freqs > 50) & (freqs < 180))
+            idx = np.where((freqs > self.bpm_lims[0]) & (freqs < self.bpm_lims[1]))  #changed from 50 -> 30, want a lower measurable HR
 
             pruned = self.fft[idx]
             phase = phase[idx]
